@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -27,6 +28,7 @@ public class Chat {
     private LocalDateTime createdAt;
 
     @OneToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ChatEntry> history;
+    @JoinColumn(name = "chat_id")
+    private List<ChatEntry> history = new ArrayList<>();
 
 }
