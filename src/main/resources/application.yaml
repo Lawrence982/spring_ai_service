@@ -10,4 +10,6 @@ spring:
     url: jdbc:postgresql://postgres:5432/ragdb
     username: postgres
     password: postgres
+  main:
+    allow-circular-references: true
 
