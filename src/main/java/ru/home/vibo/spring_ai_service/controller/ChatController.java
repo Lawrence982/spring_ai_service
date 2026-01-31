@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import ru.home.vibo.spring_ai_service.ChatService;
+import ru.home.vibo.spring_ai_service.service.ChatService;
 import ru.home.vibo.spring_ai_service.model.Chat;
 
 @Controller

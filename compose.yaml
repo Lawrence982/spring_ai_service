@@ -1,6 +1,5 @@
 version: '3.7'
 services:
-
   postgres:
     image: pgvector/pgvector:0.8.1-pg16
     restart: always
@@ -23,6 +22,9 @@ services:
       interval: 2s
       timeout: 20s
       retries: 10
+    networks:
+      - proxynet
+
   pgadmin:
     container_name: pgadmin_container
     image: dpage/pgadmin4
@@ -33,6 +35,8 @@ services:
       - ./servers.json:/pgadmin4/servers.json
     ports:
       - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - proxynet
 
   ollama:
     image: ollama/ollama
@@ -43,6 +47,8 @@ services:
       - ./ollama:/root/.ollama
     # gemma3 - google | 4 billing param | вопрос-ответ | тип сжатия квантализация
     # mxbai-embed-large - модель которая умеет превращать токены в векторы
+    networks:
+      - proxynet
     entrypoint: >
       /bin/sh -c "
         ollama serve &
@@ -52,5 +58,28 @@ services:
         wait
       "
     restart: unless-stopped
+
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:62924
+    ports:
+      - "8080:8080"
+      - "62924:62924"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://app:8080/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - proxynet
+
+networks:
+  proxynet:
+    name: custom_network                               # Общая пользовательская сеть Docker
 
 
