@@ -1,10 +1,13 @@
 package ru.home.vibo.spring_ai_service.service;
 
+import lombok.SneakyThrows;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import ru.home.vibo.spring_ai_service.model.Chat;
 import ru.home.vibo.spring_ai_service.model.ChatEntry;
 import ru.home.vibo.spring_ai_service.model.Role;
@@ -57,4 +60,27 @@ public class ChatService {
         chat.addEntry(ChatEntry.builder().content(prompt).role(role).build());
     }
 
+    public SseEmitter proceedInteractionWithStreaming(Long chatId, String prompt) {
+        proxyService.addChatEntry(chatId, prompt, USER);
+
+        StringBuilder answer = new StringBuilder();
+
+        SseEmitter sseEmitter = new SseEmitter(0L);
+
+        chatClient.prompt().user(prompt)
+                .stream()
+                .chatResponse()
+                .subscribe(response -> processToken(response, sseEmitter, answer),
+                        sseEmitter::completeWithError,
+                        () -> proxyService.addChatEntry(chatId, answer.toString(), ASSISTANT)
+                );
+        return sseEmitter;
+    }
+
+    @SneakyThrows
+    private void processToken(ChatResponse response, SseEmitter emitter, StringBuilder answer) {
+        var token = response.getResult().getOutput();
+        emitter.send(token);
+        answer.append(token.getText());
+    }
 }
