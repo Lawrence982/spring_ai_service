@@ -1,0 +1,319 @@
+/* Основные стили страницы */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body.comic-body {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    background: #f8f8f8;
+    color: #333;
+}
+
+/* Общая контейнерная область */
+.chat-container {
+    display: flex;
+    height: 100vh;
+    background: #fff;
+    overflow: hidden;
+}
+
+/* Sidebar (боковая панель) */
+.sidebar {
+    width: 280px;
+    padding: 20px;
+    border-right: 1px solid #eee;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+/* Верхняя часть боковой панели: содержит заголовок, переключатели и список чатов */
+.sidebar-top {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* чтобы нижняя часть была отделена */
+}
+
+.sidebar-top h1 {
+    font-size: 1.6em;
+    text-align: center;
+    text-transform: uppercase;
+    color: #555;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+/* Элементы переключателей */
+.dropdown, .toggle-mode {
+    margin: 12px 0;
+    font-size: 0.95em;
+}
+
+/* Обёртка для списка чатов — именно эта область прокручивается */
+.chat-list-wrapper {
+    flex: 1;             /* занимает всё оставшееся пространство */
+    overflow-y: auto;    /* вертикальный скролл */
+    min-height: 0;       /* критично для flex-элементов */
+    margin-top: 10px;
+}
+
+/* Сам список чатов */
+.chat-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.chat-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #333;
+    text-decoration: none;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 14px;
+    padding: 10px;
+    font-weight: 600;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.chat-list li:hover {
+    color: #333;
+    background: #eee;
+    text-decoration: none;
+}
+
+.chat-list li a:visited {
+    color: #333;
+    text-decoration: none;
+}
+
+.chat-list li.active {
+    background: #ddd;
+}
+
+.chat-list li a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    text-decoration: none;
+    color: #3b0b85;
+    font-weight: bold;
+}
+
+.chat-list .icons {
+    margin-left: 12px;
+    font-size: 1.1em;
+    display: flex;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.delete-chat-btn {
+    background: none;       /* нет фона */
+    border: none;           /* нет рамки */
+    color: #333;            /* основной цвет текста */
+    font-size: 1.2em;       /* размер крестика */
+    cursor: pointer;
+    transition: color 0.2s ease;
+    padding: 2px 4px;       /* небольшой отступ, чтобы было удобно нажимать */
+}
+
+.delete-chat-btn:hover {
+    color: #f57c7c;         /* при наведении становится розово-красным */
+}
+
+.delete-chat-btn:focus {
+    outline: none;          /* убираем обводку при фокусе (необязательно) */
+}
+
+/* Нижняя часть боковой панели: форма нового чата и ссылка на конфигурацию */
+.sidebar-bottom {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.new-chat-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.new-chat-form input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.new-chat {
+    width: 100%;
+    padding: 14px;
+    font-size: 1.05em;
+    font-weight: bold;
+    background: #f57c7c;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.new-chat:hover {
+    background: #ff5252;
+    transform: scale(1.02);
+}
+
+.config-link {
+    padding: 12px;
+    background: #eee;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.config-link:hover {
+    background: #ddd;
+    transform: scale(1.02);
+}
+
+/* Chat Main (основная область чата) */
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: #fafafa;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 80%;
+}
+
+.message img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #ddd;
+    object-fit: cover;
+}
+
+.bubble {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 1em;
+    line-height: 1.4;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.bubble::after {
+    content: '';
+    position: absolute;
+    bottom: 12px;
+    left: -6px;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
+    border-right: 6px solid #fff;
+}
+
+.message.agent .bubble::after {
+    left: auto;
+    right: -6px;
+    border-right: 0;
+    border-left: 6px solid #fff;
+}
+
+/* Input (форма ввода сообщений) */
+.input-area {
+    padding: 16px;
+    background: #fff;
+    border-top: 1px solid #eee;
+}
+
+.input-bubble {
+    display: flex;
+    align-items: center;
+    background: #fdfdfd;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    padding: 8px;
+    gap: 8px;
+}
+
+.input-bubble textarea {
+    flex: 1;
+    font-family: inherit;
+    font-size: 1em;
+    border: none;
+    resize: none;
+    outline: none;
+    background: transparent;
+    padding: 6px;
+    color: #333;
+}
+
+.input-bubble button {
+    padding: 10px 14px;
+    background: #00bfff;
+    border: none;
+    color: #fff;
+    font-size: 1em;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.input-bubble button:hover {
+    background: #24d0ff;
+    transform: scale(1.02);
+}
+
+/* Utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
