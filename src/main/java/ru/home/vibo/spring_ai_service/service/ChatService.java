@@ -2,7 +2,7 @@ package ru.home.vibo.spring_ai_service.service;
 
 import lombok.SneakyThrows;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -30,9 +30,6 @@ public class ChatService {
 
     @Autowired
     private ChatService proxyService;
-
-    @Autowired
-    private PostgresChatMemory postgresChatMemory;
 
     public List<Chat> getAllChats() {
         return chatRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -65,14 +62,12 @@ public class ChatService {
     }
 
     public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
-        proxyService.addChatEntry(chatId, userPrompt, USER);
-
         StringBuilder answer = new StringBuilder();
         SseEmitter sseEmitter = new SseEmitter(0L);
 
         chatClient
                 .prompt(userPrompt)
-                .advisors(MessageChatMemoryAdvisor.builder(postgresChatMemory).conversationId(String.valueOf(chatId)).build())
+                .advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
                 .chatResponse()
                 .subscribe(response -> processToken(response, sseEmitter, answer),
