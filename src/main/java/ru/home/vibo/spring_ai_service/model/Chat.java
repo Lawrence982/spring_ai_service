@@ -31,7 +31,7 @@ public class Chat {
     @JoinColumn(name = "chat_id")
     private List<ChatEntry> history = new ArrayList<>();
 
-    public void addEntry(ChatEntry entry) {
+    public void addChatEntry(ChatEntry entry) {
         history.add(entry);
     }
 }

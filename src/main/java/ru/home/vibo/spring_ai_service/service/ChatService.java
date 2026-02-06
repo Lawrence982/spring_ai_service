@@ -2,6 +2,7 @@ package ru.home.vibo.spring_ai_service.service;
 
 import lombok.SneakyThrows;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
@@ -30,6 +31,9 @@ public class ChatService {
     @Autowired
     private ChatService proxyService;
 
+    @Autowired
+    private PostgresChatMemory postgresChatMemory;
+
     public List<Chat> getAllChats() {
         return chatRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
@@ -57,23 +61,23 @@ public class ChatService {
     @Transactional
     public void addChatEntry(Long chatId, String prompt, Role role) {
         Chat chat = chatRepository.findById(chatId).orElseThrow();
-        chat.addEntry(ChatEntry.builder().content(prompt).role(role).build());
+        chat.addChatEntry(ChatEntry.builder().content(prompt).role(role).build());
     }
 
-    public SseEmitter proceedInteractionWithStreaming(Long chatId, String prompt) {
-        proxyService.addChatEntry(chatId, prompt, USER);
+    public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
+        proxyService.addChatEntry(chatId, userPrompt, USER);
 
         StringBuilder answer = new StringBuilder();
-
         SseEmitter sseEmitter = new SseEmitter(0L);
 
-        chatClient.prompt().user(prompt)
+        chatClient
+                .prompt(userPrompt)
+                .advisors(MessageChatMemoryAdvisor.builder(postgresChatMemory).conversationId(String.valueOf(chatId)).build())
                 .stream()
                 .chatResponse()
                 .subscribe(response -> processToken(response, sseEmitter, answer),
                         sseEmitter::completeWithError,
-                        () -> proxyService.addChatEntry(chatId, answer.toString(), ASSISTANT)
-                );
+                        sseEmitter::complete);
         return sseEmitter;
     }
 
