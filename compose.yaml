@@ -46,7 +46,7 @@ services:
     volumes:
       - ./ollama:/root/.ollama
     # gemma3 - google | 4 billing param | вопрос-ответ | тип сжатия квантализация
-    # mxbai-embed-large - модель которая умеет превращать токены в векторы
+    # mxbai-embed-large - модель, которая умеет превращать токены (нарезанные чанки по документам) в векторное представление
     networks:
       - proxynet
     entrypoint: >
