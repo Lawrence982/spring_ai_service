@@ -17,3 +17,7 @@ spring:
   main:
     allow-circular-references: true
 
+app:
+  knowledgebase:
+    path: classpath:/knowledgebase/**/*.txt
+
