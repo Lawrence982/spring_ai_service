@@ -21,3 +21,6 @@ app:
   knowledgebase:
     path: classpath:/knowledgebase/**/*.txt
 
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: DEBUG

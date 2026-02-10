@@ -14,6 +14,8 @@ import ru.home.vibo.spring_ai_service.model.ChatEntry;
 import ru.home.vibo.spring_ai_service.model.Role;
 import ru.home.vibo.spring_ai_service.repository.ChatRepository;
 
+import jakarta.persistence.EntityNotFoundException;
+
 import java.util.List;
 
 import static ru.home.vibo.spring_ai_service.model.Role.ASSISTANT;
@@ -36,7 +38,8 @@ public class ChatService {
     }
 
     public Chat getChat(Long chatId) {
-        return chatRepository.findById(chatId).orElseThrow();
+        return chatRepository.findById(chatId)
+                .orElseThrow(() -> new EntityNotFoundException("Chat not found with id: " + chatId));
     }
 
     public Chat createNewChat(String title) {
@@ -57,7 +60,8 @@ public class ChatService {
 
     @Transactional
     public void addChatEntry(Long chatId, String prompt, Role role) {
-        Chat chat = chatRepository.findById(chatId).orElseThrow();
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new EntityNotFoundException("Chat not found with id: " + chatId));
         chat.addChatEntry(ChatEntry.builder().content(prompt).role(role).build());
     }
 
