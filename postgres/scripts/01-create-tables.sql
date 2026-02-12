@@ -36,18 +36,18 @@ ALTER TABLE public.chat_entry
 CREATE TABLE IF NOT EXISTS loaded_document
 (
     id            SERIAL PRIMARY KEY,
-    filename      VARCHAR(255) NOT NULL,
+    file_name      VARCHAR(255) NOT NULL,
     content_hash  VARCHAR(64)  NOT NULL,
     document_type VARCHAR(10)  NOT NULL,
     chunk_count   INTEGER,
     loaded_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT unique_document UNIQUE (filename, content_hash)
+    CONSTRAINT unique_document UNIQUE (file_name, content_hash)
 );
 
 -- Индекс для быстрого поиска по имени файла
 CREATE INDEX IF NOT EXISTS idx_loaded_documents_filename
-    ON loaded_document (filename);
+    ON loaded_document (file_name);
 
 -- Таблица для векторного хранилища
 CREATE TABLE IF NOT EXISTS vector_store

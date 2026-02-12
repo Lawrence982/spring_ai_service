@@ -7,6 +7,7 @@ import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,20 +39,22 @@ public class SpringAiServiceApplication {
     @Bean
     public ChatClient chatClient(ChatClient.Builder builder) {
         return builder.defaultAdvisors(
-                getHistoryAdvisor(),
-                SimpleLoggerAdvisor.builder().build(),
-                getRagAdvisor())
+                getHistoryAdvisor(1),
+                SimpleLoggerAdvisor.builder().order(2).build(),
+                getRagAdvisor(3),
+                SimpleLoggerAdvisor.builder().order(4).build())
+                .defaultOptions(OllamaChatOptions.builder().temperature(0.3).topP(0.7).topK(20).repeatPenalty(1.1).build())
                 .build();
     }
 
-    private Advisor getRagAdvisor() {
+    private Advisor getRagAdvisor(int order) {
         return QuestionAnswerAdvisor.builder(vectorStore).promptTemplate(MY_PROMPT_TEMPLATE).searchRequest(
-                SearchRequest.builder().topK(4).build() // default (just example)
-        ).build();
+                SearchRequest.builder().topK(4).similarityThreshold(0.65).build()
+        ).order(order).build();
     }
 
-    private Advisor getHistoryAdvisor() {
-        return MessageChatMemoryAdvisor.builder(getChatMemory()).build();
+    private Advisor getHistoryAdvisor(int order) {
+        return MessageChatMemoryAdvisor.builder(getChatMemory()).order(order).build();
     }
 
     private ChatMemory getChatMemory() {

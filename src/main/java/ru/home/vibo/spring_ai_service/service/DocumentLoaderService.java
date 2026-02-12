@@ -67,7 +67,7 @@ public class DocumentLoaderService implements CommandLineRunner {
 
                     List<Document> documents = new TextReader(resource).get();
                     TokenTextSplitter textSplitter = TokenTextSplitter.builder()
-                            .withChunkSize(500)
+                            .withChunkSize(200)
                             .build();
                     List<Document> chunks = textSplitter.apply(documents);
 
