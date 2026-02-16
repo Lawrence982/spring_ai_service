@@ -30,9 +30,6 @@ public class ChatService {
     @Autowired
     private ChatClient chatClient;
 
-    @Autowired
-    private ChatService proxyService;
-
     public List<Chat> getAllChats() {
         return chatRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
@@ -53,9 +50,9 @@ public class ChatService {
 
     @Transactional
     public void proceedInteraction(Long chatId, String prompt) {
-        proxyService.addChatEntry(chatId, prompt, USER);
+        addChatEntry(chatId, prompt, USER);
         String answer = chatClient.prompt().user(prompt).call().content();
-        proxyService.addChatEntry(chatId, answer, ASSISTANT);
+        addChatEntry(chatId, answer, ASSISTANT);
     }
 
     @Transactional
