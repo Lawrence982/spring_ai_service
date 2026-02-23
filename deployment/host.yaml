@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: host-deployment
+  name: host-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: host-deployment
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: host-deployment
+    spec:
+      containers:
+        - image: library/host:1.2
+          name: host
+          env:
+            - name: DB_HOST
+              value: postgresql-0.postgresql.postgres.svc.cluster.local
+            - name: OLLAMA_HOST
+              value: ollama-service.ollama.svc.cluster.local
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-secret
+                  key: password
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30
+            failureThreshold: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            failureThreshold: 3
+            periodSeconds: 10
+          resources: {}
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: host-deployment
+  name: host-service
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: host-deployment
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: host-ingress
+spec:
+  rules:
+    - host: host.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: host-service
+                port:
+                  number: 8080
