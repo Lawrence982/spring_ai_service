@@ -15,6 +15,16 @@ spring:
       show_sql: true
       format_sql: true
 
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 app:
   knowledgebase:
     path: classpath:/knowledgebase/**/*.txt
