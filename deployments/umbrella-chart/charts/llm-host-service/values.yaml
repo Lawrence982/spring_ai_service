@@ -1,6 +1,6 @@
 IMAGE:
   REPOSITORY: host
-  TAG: 1.2
+  TAG: 1.3
   PULL_POLICY: IfNotPresent
 
 REPLICA_COUNT: 1

@@ -42,7 +42,7 @@ spec:
               command:
                 - sh
                 - -c
-                - "pg_isready -U ragdb"
+                - "pg_isready -U postgres -d ragdb"
             initialDelaySeconds: 15
             periodSeconds: 5
             failureThreshold: 3
