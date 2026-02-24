@@ -1,0 +1,17 @@
+llm-host-service:
+  REPLICA_COUNT: 1
+  SERVICE:
+    TYPE: ClusterIP
+    PORT: 8080
+
+ollama-service:
+  REPLICA_COUNT: 1
+  SERVICE:
+    TYPE: ClusterIP
+    PORT: 11434
+
+postgres-service:
+  REPLICA_COUNT: 1
+  SERVICE:
+    TYPE: None
+    PORT: 5432

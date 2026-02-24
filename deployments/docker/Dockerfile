@@ -1,8 +1,8 @@
 FROM maven:3.9.12-amazoncorretto-21 AS build
-COPY pom.xml /build/
+COPY ../../pom.xml /build/
 WORKDIR /build
 #RUN mvn dependency:go-offline
-COPY src /build/src
+COPY ../../src /build/src
 RUN mvn package -DskipTests
 
 #Run stage

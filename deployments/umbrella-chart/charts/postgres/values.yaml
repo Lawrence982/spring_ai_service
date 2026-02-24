@@ -1,0 +1,15 @@
+IMAGE:
+  REPOSITORY: pgvector/pgvector
+  TAG: 0.8.1-pg16
+
+NAMESPACE: postgres
+
+SECRET_NAME: pg-secret
+AUTH:
+  USERNAME: postgres
+  PASSWORD: postgres
+
+REPLICA_COUNT: 1
+SERVICE:
+  TYPE: None
+  PORT: 5432

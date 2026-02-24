@@ -1,16 +1,24 @@
 spring:
   application:
     name: spring_ai_service
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
   ai:
     ollama:
       base-url: http://${OLLAMA_HOST:ollama}:11434
       chat:
         model: gemma3:4b-it-q4_K_M
+    vectorstore:
+      pgvector:
+        initialize-schema: false
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/ragdb
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
   jpa:
+    hibernate:
+      ddl-auto: validate
     properties.hibernate:
       show_sql: true
       format_sql: true

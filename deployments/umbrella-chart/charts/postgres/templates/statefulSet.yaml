@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgresql
+  namespace: {{ .Values.NAMESPACE }}
 spec:
   serviceName: postgresql
   replicas: 1
@@ -15,7 +16,7 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: pgvector/pgvector:0.8.1-pg16
+          image: {{ .Values.IMAGE.REPOSITORY }}:{{ .Values.IMAGE.TAG }}
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -35,7 +36,7 @@ spec:
                   name: pg-secret
                   key: password
           ports:
-            - containerPort: 5432
+            - containerPort: {{ .Values.SERVICE.PORT }}
           readinessProbe:
             exec:
               command:
@@ -57,14 +58,3 @@ spec:
         resources:
           requests:
             storage: 1Gi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgresql
-spec:
-  clusterIP: None
-  selector:
-    app: postgresql
-  ports:
-    - port: 5432

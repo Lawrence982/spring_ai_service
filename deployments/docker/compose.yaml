@@ -15,25 +15,11 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres/data:/var/lib/postgresql/data
-      - ./postgres/scripts:/docker-entrypoint-initdb.d
     healthcheck:
       test: "pg_isready -U postgres -d ragdb"
       interval: 2s
       timeout: 20s
       retries: 10
-    networks:
-      - proxynet
-
-  pgadmin:
-    container_name: pgadmin_container
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
-    volumes:
-      - ./servers.json:/pgadmin4/servers.json
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
     networks:
       - proxynet
 
@@ -61,7 +47,7 @@ services:
   app:
     build:
       context: ./
-      dockerfile: Dockerfile
+      dockerfile: deployments/docker/Dockerfile
     environment:
       JAVA_TOOL_OPTIONS: >-
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:62924

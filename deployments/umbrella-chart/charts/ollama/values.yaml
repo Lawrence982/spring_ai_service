@@ -1,0 +1,10 @@
+IMAGE:
+  REPOSITORY: ollama/ollama
+  TAG: latest
+
+NAMESPACE: ollama
+
+REPLICA_COUNT: 1
+SERVICE:
+  TYPE: ClusterIP
+  PORT: 11434

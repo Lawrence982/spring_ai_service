@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: llm-host-service
+  name: llm-host-service
+spec:
+  ports:
+    - port: {{ .Values.SERVICE.PORT }}
+      protocol: TCP
+      targetPort: {{ .Values.SERVICE.PORT }}
+  selector:
+    app: llm-host-service
+  type: {{ .Values.SERVICE.TYPE }}
+status:
+  loadBalancer: {}

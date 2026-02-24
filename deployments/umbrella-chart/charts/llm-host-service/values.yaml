@@ -1,0 +1,14 @@
+IMAGE:
+  REPOSITORY: host
+  TAG: 1.2
+  PULL_POLICY: IfNotPresent
+
+REPLICA_COUNT: 1
+SERVICE:
+  TYPE: ClusterIP
+  PORT: 8080
+
+SECRET_NAME: pg-secret
+AUTH:
+  USERNAME: postgres
+  PASSWORD: postgres

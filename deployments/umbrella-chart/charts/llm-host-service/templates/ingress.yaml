@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: llm-host-ingress
+spec:
+  rules:
+    - host: llm.host.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: llm-host-service
+                port:
+                  number: {{ .Values.SERVICE.PORT }}

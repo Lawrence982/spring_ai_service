@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ollama-service
+  name: ollama-service
+  namespace: {{ .Values.NAMESPACE}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-service
+  template:
+    metadata:
+      labels:
+        app: ollama-service
+    spec:
+      containers:
+        - image: {{ .Values.IMAGE.REPOSITORY }}:{{ .Values.IMAGE.TAG }}
+          name: ollama
+          command: ["/bin/sh", "-c"]
+          args: ["ollama serve & sleep 5 && ollama pull gemma3:4b-it-q4_K_M && ollama pull mxbai-embed-large && wait"]
+          volumeMounts:
+            - name: ollama-storage
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-storage
+          persistentVolumeClaim:
+            claimName: ollama-pvc
