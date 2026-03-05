@@ -18,3 +18,7 @@ target/
 *.iws
 *.iml
 *.ipr
+
+### Docker volumes ###
+postgres/data/
+ollama/

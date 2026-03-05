@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./postgres/data:/var/lib/postgresql/data
+      - ../../postgres/data:/var/lib/postgresql/data
     healthcheck:
       test: "pg_isready -U postgres -d ragdb"
       interval: 2s
@@ -29,7 +29,7 @@ services:
     ports:
       - "11431:11434"
     volumes:
-      - ./ollama:/root/.ollama
+      - ../../ollama:/root/.ollama
     # gemma3 - google | 4 billing param | вопрос-ответ | тип сжатия квантализация
     # mxbai-embed-large - модель, которая умеет превращать токены (нарезанные чанки по документам) в векторное представление
     networks:
@@ -44,13 +44,15 @@ services:
       "
     restart: unless-stopped
 
-  app:
+  llm-host-service:
     build:
-      context: ./
+      context: ../..
       dockerfile: deployments/docker/Dockerfile
+    container_name: llm-host-service
     environment:
       JAVA_TOOL_OPTIONS: >-
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:62924
+      MCP_SERVER_URL: mcp-server-http:8091
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +60,7 @@ services:
       - "8080:8080"
       - "62924:62924"
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://app:8080/actuator/health" ]
+      test: [ "CMD-SHELL", "curl -f http://llm-host-service:8080/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5

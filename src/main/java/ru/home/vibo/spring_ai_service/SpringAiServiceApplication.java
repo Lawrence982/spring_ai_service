@@ -6,8 +6,8 @@ import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -22,17 +22,8 @@ import ru.home.vibo.spring_ai_service.service.PostgresChatMemory;
 @SpringBootApplication
 public class SpringAiServiceApplication {
 
-    private static final PromptTemplate SYSTEM_PROMPT = new PromptTemplate(
-            """
-                    Ты — Боков Виталий, Java-разработчик и эксперт по Spring. Отвечай от первого лица, кратко и по делу.
-                    
-                    Вопрос может быть о СЛЕДСТВИИ факта из Context.
-                    ВСЕГДА связывай: факт Context → вопрос.
-                    
-                    Нет связи, даже косвенной = "я этого не знаю".
-                    Есть связь = отвечай.
-                    """
-    );
+    @Value("${app.llm.persona-prompt}")
+    private String personaPrompt;
 
     @Autowired
     private ChatRepository chatRepository;
@@ -52,7 +43,15 @@ public class SpringAiServiceApplication {
                 RagAdvisor.builder(vectorStore).order(3).build(),
                 SimpleLoggerAdvisor.builder().order(4).build())
                 .defaultOptions(OllamaChatOptions.builder().temperature(0.3).topP(0.7).topK(20).repeatPenalty(1.1).build())
-                .defaultSystem(SYSTEM_PROMPT.render())
+                // defaultSystem не указывается здесь — будет установлен в ChatService.@PostConstruct после MCP-инициализации
+                .build();
+    }
+
+    @Bean("toolResolutionClient")
+    public ChatClient toolResolutionClient(ChatClient.Builder builder) {
+        return builder
+                .defaultOptions(OllamaChatOptions.builder().temperature(0.3).topP(0.7).topK(20).repeatPenalty(1.1).build())
+                .defaultSystem(personaPrompt)
                 .build();
     }
 
@@ -68,8 +67,7 @@ public class SpringAiServiceApplication {
     }
 
     public static void main(String[] args) {
-        ConfigurableApplicationContext context = SpringApplication.run(SpringAiServiceApplication.class, args);
-        ChatClient chatClient = context.getBean(ChatClient.class);
+        SpringApplication.run(SpringAiServiceApplication.class, args);
 //        $ curl 'http://localhost:11431/api/generate' -H 'Content-Type: application/json' -d '{
 //        "model": "gemma3:4b-it-q4_K_M",
 //                "prompt": "Оригинальный текст песни Bohemian Rhapsody",
