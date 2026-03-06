@@ -141,7 +141,10 @@ public class ChatService {
     }
 
     public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
-        SseEmitter sseEmitter = new SseEmitter();
+        // Long.MAX_VALUE: отключаем таймаут эмиттера — LLM может думать дольше дефолтного
+        // async-таймаута Tomcat (~30s). Без этого SseEmitter завершается по таймауту
+        // пока Фаза 1 ещё выполняется, и processToken получает IllegalStateException.
+        SseEmitter sseEmitter = new SseEmitter(Long.MAX_VALUE);
 
         // Весь блок обработки запускается в отдельном виртуальном потоке.
         // Это обязательно: SseEmitter должен быть возвращён контроллером ДО того,
@@ -266,6 +269,9 @@ public class ChatService {
         } catch (IOException e) {
             log.warn("processToken: client disconnected, completing emitter", e);
             emitter.completeWithError(e);
+        } catch (IllegalStateException e) {
+            // Эмиттер уже завершён (таймаут или разрыв соединения) — ничего не делаем
+            log.warn("processToken: emitter already completed for chatId, client likely disconnected");
         }
     }
 
