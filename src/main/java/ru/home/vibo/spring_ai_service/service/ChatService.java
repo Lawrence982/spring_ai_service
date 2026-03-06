@@ -1,11 +1,8 @@
 package ru.home.vibo.spring_ai_service.service;
 
-import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
+import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -15,29 +12,18 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import ru.home.vibo.spring_ai_service.model.Chat;
-import ru.home.vibo.spring_ai_service.model.ChatEntry;
-import ru.home.vibo.spring_ai_service.model.Role;
 import ru.home.vibo.spring_ai_service.repository.ChatRepository;
-
-import jakarta.persistence.EntityNotFoundException;
 import ru.home.vibo.spring_ai_service.utils.CallToolUtil;
-import ru.home.vibo.spring_ai_service.utils.SystemPromptFactory;
 
 import java.io.IOException;
-import java.net.http.HttpTimeoutException;
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import reactor.core.Disposable;
 
 import static ru.home.vibo.spring_ai_service.model.Role.ASSISTANT;
@@ -46,9 +32,6 @@ import static ru.home.vibo.spring_ai_service.model.Role.ASSISTANT;
 public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
-
-    @Autowired
-    private ChatService proxyService;
 
     @Autowired
     private ChatRepository chatRepository;
@@ -60,52 +43,19 @@ public class ChatService {
     @Qualifier("toolResolutionClient")
     private ChatClient toolResolutionClient;
 
-    @Value("${app.mcp.server-url}")
-    private String mcpServerUrl;
+    @Autowired
+    private McpClientManager mcpClientManager;
 
-    @Value("${app.llm.persona-prompt}")
-    private String personaPrompt;
-
-    private String systemPrompt;
-    private McpSyncClient client;
-    private Set<String> allowedTools;
+    @Autowired
+    private ChatEntryPersistence entryPersistence;
 
     @PostConstruct
-    public void init() {
-        try {
-            var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
-                    .endpoint("/mcpserver")
-//                    .customizeRequest(r -> r.timeout(Duration.ofSeconds(30)))
-                    .build();
-            client = McpClient.sync(transport).build();
-            client.initialize();
-            McpSchema.ListToolsResult toolsResult = client.listTools();
-            allowedTools = toolsResult.tools().stream()
-                    .map(McpSchema.Tool::name)
-                    .collect(Collectors.toUnmodifiableSet());
-            systemPrompt = personaPrompt + "\n\n" + SystemPromptFactory.withTools(toolsResult);
-            log.info("init: MCP initialized, {} tools available: {}", allowedTools.size(), allowedTools);
-        } catch (Exception e) {
-            log.warn("init: MCP unavailable at {}, running without tools. Cause: {}", mcpServerUrl, e.getMessage());
-            client = null;
-            allowedTools = Set.of();
-            systemPrompt = personaPrompt;
-        }
+    public void configureSystemPrompt() {
+        // McpClientManager.init() уже выполнился (Spring инициализирует зависимости первыми)
         // Переопределяем chatClient с полным системным промптом (персона + MCP-инструменты если доступны)
-        this.chatClient = this.chatClient.mutate().defaultSystem(systemPrompt).build();
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        if (client == null) {
-            return;
-        }
-        log.info("cleanup: closing McpSyncClient");
-        boolean graceful = client.closeGracefully();
-        if (!graceful) {
-            log.warn("cleanup: closeGracefully returned false, falling back to close()");
-            client.close();
-        }
+        this.chatClient = this.chatClient.mutate()
+                .defaultSystem(mcpClientManager.getSystemPrompt())
+                .build();
     }
 
     public List<Chat> getAllChats() {
@@ -132,13 +82,6 @@ public class ChatService {
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
                 .content();
-    }
-
-    @Transactional
-    public void addChatEntry(Long chatId, String prompt, Role role) {
-        Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new EntityNotFoundException("Chat not found with id: " + chatId));
-        chat.addChatEntry(ChatEntry.builder().content(prompt).role(role).build());
     }
 
     public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
@@ -192,6 +135,21 @@ public class ChatService {
     private void doPhases(Long chatId, String userPrompt, SseEmitter sseEmitter) {
         // Фаза 1: блокирующий вызов для детекции <tool_call>.
         // Нельзя стримить — паттерн <tool_call> виден только в полном тексте ответа.
+        AssistantMessage assistantMessage = executePhase1(chatId, userPrompt, sseEmitter);
+        if (assistantMessage == null) {
+            return;
+        }
+
+        if (CallToolUtil.isToolRequired(assistantMessage.getText())) {
+            executePhase2WithTool(chatId, userPrompt, assistantMessage, sseEmitter);
+        } else {
+            // Фаза 2b: тул не нужен.
+            // MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
+            executePhase2Direct(assistantMessage, sseEmitter);
+        }
+    }
+
+    private AssistantMessage executePhase1(Long chatId, String userPrompt, SseEmitter sseEmitter) {
         // MessageChatMemoryAdvisor загружает историю диалога и сохраняет этот обмен в БД.
         // systemPrompt зашит в chatClient через mutate() в @PostConstruct.
         ChatResponse firstResponse = chatClient
@@ -202,89 +160,96 @@ public class ChatService {
                 .chatResponse();
 
         if (firstResponse == null) {
-            log.error("doStreamInteraction: LLM returned null response for chatId={}", chatId);
+            log.error("executePhase1: LLM returned null response for chatId={}", chatId);
             sendErrorAndComplete(sseEmitter, "Модель не вернула ответ. Попробуйте ещё раз.");
-            return;
+            return null;
         }
 
         AssistantMessage assistantMessage = firstResponse.getResult().getOutput();
         if (assistantMessage.getText() == null) {
-            log.error("doStreamInteraction: LLM returned null output for chatId={}", chatId);
+            log.error("executePhase1: LLM returned null output for chatId={}", chatId);
             sendErrorAndComplete(sseEmitter, "Получен пустой ответ от модели.");
+            return null;
+        }
+
+        return assistantMessage;
+    }
+
+    private void executePhase2WithTool(Long chatId, String userPrompt, AssistantMessage assistantMessage, SseEmitter sseEmitter) {
+        if (!mcpClientManager.isAvailable()) {
+            // MCP недоступен — модель сгенерировала <tool_call>, но сервер не подключён.
+            // Сохраняем сообщение об ошибке как ответ ASSISTANT, чтобы не терять историю.
+            log.warn("executePhase2WithTool: tool call requested but MCP client is unavailable");
+            String msg = "Инструмент недоступен: MCP-сервер не подключён.";
+            entryPersistence.addEntry(chatId, msg, ASSISTANT);
+            sendErrorAndComplete(sseEmitter, msg);
             return;
         }
 
-        if (CallToolUtil.isToolRequired(assistantMessage.getText())) {
-            // Фаза 2a: тул нужен.
+        Optional<McpSchema.CallToolResult> toolResultOpt = mcpClientManager.executeTool(assistantMessage.getText());
+        if (toolResultOpt.isEmpty()) {
+            log.warn("executePhase2WithTool: invalid or unparseable tool call, aborting tool phase");
+            sendErrorAndComplete(sseEmitter, "Не удалось обработать запрос к инструменту. Попробуйте переформулировать вопрос.");
+            return;
+        }
 
-            if (client == null) {
-                // MCP недоступен — модель сгенерировала <tool_call>, но сервер не подключён.
-                // Сохраняем сообщение об ошибке как ответ ASSISTANT, чтобы не терять историю.
-                log.warn("doStreamInteraction: tool call requested but MCP client is unavailable");
-                String msg = "Инструмент недоступен: MCP-сервер не подключён.";
-                proxyService.addChatEntry(chatId, msg, ASSISTANT);
-                sendErrorAndComplete(sseEmitter, msg);
-                return;
-            }
+        McpSchema.CallToolResult toolCallResult = toolResultOpt.get();
+        if (toolCallResult.content() == null || toolCallResult.content().isEmpty()) {
+            log.error("executePhase2WithTool: MCP tool returned empty content for chatId={}", chatId);
+            sendErrorAndComplete(sseEmitter, "Инструмент не вернул результат.");
+            return;
+        }
 
-            Optional<McpSchema.CallToolRequest> callToolRequestOpt =
-                    CallToolUtil.getRequiredTool(assistantMessage.getText(), allowedTools);
+        String toolResponse = CallToolUtil.wrapResponse(toolCallResult.content().getFirst().toString());
 
-            if (callToolRequestOpt.isEmpty()) {
-                log.warn("doStreamInteraction: invalid or unparseable tool call, aborting tool phase");
-                sendErrorAndComplete(sseEmitter, "Не удалось обработать запрос к инструменту. Попробуйте переформулировать вопрос.");
-                return;
-            }
+        AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
 
-            McpSchema.CallToolResult toolCallResult = callTool(callToolRequestOpt.get());
-            if (toolCallResult == null || toolCallResult.content() == null || toolCallResult.content().isEmpty()) {
-                log.error("doStreamInteraction: MCP tool returned empty content for chatId={}", chatId);
-                sendErrorAndComplete(sseEmitter, "Инструмент не вернул результат.");
-                return;
-            }
-            String toolResponse = CallToolUtil.wrapResponse(toolCallResult.content().getFirst().toString());
+        sseEmitter.onTimeout(() -> {
+            log.warn("executePhase2WithTool: SSE timeout for chatId={}", chatId);
+            Disposable sub = subscriptionRef.get();
+            if (sub != null && !sub.isDisposed()) sub.dispose();
+        });
+        sseEmitter.onError(ex -> {
+            log.warn("executePhase2WithTool: SSE error for chatId={}", chatId, ex);
+            Disposable sub = subscriptionRef.get();
+            if (sub != null && !sub.isDisposed()) sub.dispose();
+        });
 
-            AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
+        // toolResolutionClient — без RAG, Expansion и Memory advisors.
+        // systemPrompt (персона) зашит в бин через defaultSystem.
+        // Передаём полный контекст явно: user → <tool_call> → tool_response.
+        // Финальный ответ стримим пользователю, сохраняем только его в БД.
+        StringBuffer answer = new StringBuffer();
+        Disposable subscription = toolResolutionClient.prompt()
+                .messages(List.of(new UserMessage(userPrompt), assistantMessage, new UserMessage(toolResponse)))
+                .stream()
+                .chatResponse()
+                .subscribe(
+                        response -> processToken(response, sseEmitter, answer),
+                        error -> {
+                            Disposable sub = subscriptionRef.get();
+                            if (sub != null) sub.dispose();
+                            sseEmitter.completeWithError(error);
+                        },
+                        () -> {
+                            // Фаза 1 уже сохранила userPrompt — сохраняем только финальный ответ ASSISTANT
+                            entryPersistence.addEntry(chatId, answer.toString(), ASSISTANT);
+                            sseEmitter.complete();
+                        }
+                );
+        subscriptionRef.set(subscription);
+    }
 
-            sseEmitter.onTimeout(() -> {
-                log.warn("doStreamInteraction: SSE timeout for chatId={}", chatId);
-                Disposable sub = subscriptionRef.get();
-                if (sub != null && !sub.isDisposed()) sub.dispose();
-            });
-            sseEmitter.onError(ex -> {
-                log.warn("doStreamInteraction: SSE error for chatId={}", chatId, ex);
-                Disposable sub = subscriptionRef.get();
-                if (sub != null && !sub.isDisposed()) sub.dispose();
-            });
-
-            // toolResolutionClient — без RAG, Expansion и Memory advisors.
-            // systemPrompt (персона) зашит в бин через defaultSystem.
-            // Передаём полный контекст явно: user → <tool_call> → tool_response.
-            // Финальный ответ стримим пользователю, сохраняем только его в БД.
-            StringBuffer answer = new StringBuffer();
-            Disposable subscription = toolResolutionClient.prompt()
-                    .messages(List.of(new UserMessage(userPrompt), assistantMessage, new UserMessage(toolResponse)))
-                    .stream()
-                    .chatResponse()
-                    .subscribe(
-                            response -> processToken(response, sseEmitter, answer),
-                            error -> {
-                                Disposable sub = subscriptionRef.get();
-                                if (sub != null) sub.dispose();
-                                sseEmitter.completeWithError(error);
-                            },
-                            () -> {
-                                // Фаза 1 уже сохранила userPrompt — сохраняем только финальный ответ ASSISTANT
-                                proxyService.addChatEntry(chatId, answer.toString(), ASSISTANT);
-                                sseEmitter.complete();
-                            }
-                    );
-            subscriptionRef.set(subscription);
-        } else {
-            // Фаза 2b: тул не нужен.
-            // MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
-            processToken(firstResponse, sseEmitter, new StringBuffer());
+    private void executePhase2Direct(AssistantMessage assistantMessage, SseEmitter sseEmitter) {
+        try {
+            sseEmitter.send(assistantMessage);
             sseEmitter.complete();
+        } catch (IOException e) {
+            log.warn("executePhase2Direct: client disconnected", e);
+            sseEmitter.completeWithError(e);
+        } catch (IllegalStateException e) {
+            // Эмиттер уже завершён (таймаут или разрыв соединения) — ничего не делаем
+            log.warn("executePhase2Direct: emitter already completed, client likely disconnected");
         }
     }
 
@@ -309,22 +274,6 @@ public class ChatService {
         } catch (IOException e) {
             log.warn("sendErrorAndComplete: failed to send error message", e);
             emitter.completeWithError(e);
-        }
-    }
-
-    private McpSchema.CallToolResult callTool(McpSchema.CallToolRequest request) {
-        // Таймаут 30s настроен на уровне транспорта через customizeRequest().
-        // HttpTimeoutException пробрасывается как причина RuntimeException из MCP SDK.
-        try {
-            return client.callTool(request);
-        } catch (RuntimeException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof HttpTimeoutException) {
-                log.error("callTool: MCP tool call timed out after 30s for tool={}", request.name());
-            } else {
-                log.error("callTool: MCP tool call failed for tool={}", request.name(), e);
-            }
-            return null;
         }
     }
 }
