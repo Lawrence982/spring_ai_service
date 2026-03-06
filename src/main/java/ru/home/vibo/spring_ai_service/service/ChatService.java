@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import reactor.core.Disposable;
@@ -163,6 +164,32 @@ public class ChatService {
     }
 
     private void doStreamInteraction(Long chatId, String userPrompt, SseEmitter sseEmitter) {
+        // Keepalive: отправляем SSE-комментарий каждые 15 сек, пока Phase 1 блокируется.
+        // Без этого прокси/браузер закрывает idle-соединение (Broken pipe) раньше,
+        // чем LLM успевает ответить. SSE-комментарии (: ping) игнорируются EventSource на клиенте.
+        AtomicBoolean keepAlive = new AtomicBoolean(true);
+        Thread pingThread = Thread.ofVirtual().name("sse-ping-" + chatId).start(() -> {
+            while (keepAlive.get()) {
+                try {
+                    Thread.sleep(15_000);
+                    if (keepAlive.get()) {
+                        sseEmitter.send(SseEmitter.event().comment("ping"));
+                    }
+                } catch (IOException | InterruptedException e) {
+                    break;
+                }
+            }
+        });
+
+        try {
+            doPhases(chatId, userPrompt, sseEmitter);
+        } finally {
+            keepAlive.set(false);
+            pingThread.interrupt();
+        }
+    }
+
+    private void doPhases(Long chatId, String userPrompt, SseEmitter sseEmitter) {
         // Фаза 1: блокирующий вызов для детекции <tool_call>.
         // Нельзя стримить — паттерн <tool_call> виден только в полном тексте ответа.
         // MessageChatMemoryAdvisor загружает историю диалога и сохраняет этот обмен в БД.
