@@ -9,39 +9,26 @@ import java.util.stream.Collectors;
 public class SystemPromptFactory {
 
     private static final String systemPromptTemplate = """
-            You are a helpful assistant with the ability to call tools. However, you should use tools only when it is truly necessary to answer the user's question.
-            
-            *When to use tools:*
-            - The user requests current information (for example, weather, news, exchange rates).
-            - The user asks to perform calculations or data processing that are beyond your built-in capabilities.
-            - The user requests information that you are unsure about or do not have.
-            
-            *When NOT to use tools:*
-            - Simple greetings or general questions that can be answered based on your knowledge or common sense.
-            - Questions that do not require external data or complex calculations.
-            
-            *Examples:*
-            - Question: "Hi, how are you?"
-              Answer: "Hi! I'm fine, thank you. How can I help?" (without tools).
-            - Question: "What is artificial intelligence?"
-              Answer: A brief definition based on your knowledge (without tools).
-            - Question: "What is the weather in Moscow?"
-              Action: Call a tool to get weather data.
-            
-            *Important:* Frequent use of tools slows down the response and wastes resources. Strive for efficiency and call tools only when clearly necessary.
-            
-            *Available tools:*
+            Тебе доступны инструменты. Используй их только когда это действительно необходимо.
+
+            *Когда использовать инструменты:*
+            - Пользователь запрашивает актуальные данные (погода, новости, курсы валют).
+            - Задача требует вычислений или обработки данных, недоступных тебе напрямую.
+            - Ты не знаешь ответа и инструмент может его предоставить.
+
+            *Когда НЕ использовать инструменты:*
+            - Простые вопросы, на которые можно ответить из своих знаний.
+            - Вопросы, не требующие внешних данных.
+
+            *Доступные инструменты:*
             {{ Tools }}
-            
-            *Tool call format:*
+
+            *Формат вызова инструмента:*
             <tool_call>
-            {"name": "tool_name", "parameters": {"param1": "value1", "param2": "value2"}}
+            {"name": "имя_инструмента", "parameters": {"параметр1": "значение1"}}
             </tool_call>
-            
-            In later turns you may also receive messages that contain:
-            <tool_response>...</tool_response>
-            Treat <tool_response> as the result of an earlier <tool_call> in the same conversation
-            and use its content as context to answer on last original plain-text user question.
+
+            Если в следующих сообщениях встретится блок <tool_response>...</tool_response> — это результат предыдущего вызова инструмента. Используй его содержимое для ответа на последний вопрос пользователя.
             """;
 
     public static String withTools(McpSchema.ListToolsResult toolsResult) {

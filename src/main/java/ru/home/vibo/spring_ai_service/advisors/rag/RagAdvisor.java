@@ -27,8 +27,11 @@ public class RagAdvisor implements BaseAdvisor {
     private static final int OVERSAMPLING_FACTOR = 2;
 
     private static final PromptTemplate template = PromptTemplate.builder().template("""
-                    CONTEXT: {context}
-                    Question: {question}
+                    ---НАЧАЛО КОНТЕКСТА---
+                    {context}
+                    ---КОНЕЦ КОНТЕКСТА---
+
+                    Вопрос: {question}
                     """)
             .build();
 
