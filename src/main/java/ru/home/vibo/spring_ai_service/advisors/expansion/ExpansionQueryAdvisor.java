@@ -23,28 +23,31 @@ public class ExpansionQueryAdvisor implements BaseAdvisor {
     private static final PromptTemplate template = PromptTemplate.builder()
             .template("""
                         Instruction: Расширь поисковый запрос, добавив наиболее релевантные термины.
-                    
-                        СПЕЦИАЛИЗАЦИЯ ПО SPRING FRAMEWORK:
-                        - Жизненный цикл Spring бинов: конструктор → BeanPostProcessor → PostConstruct → прокси → ContextListener
-                        - Технологии: Dynamic Proxy, CGLib, reflection, аннотации, XML конфигурация
-                        - Компоненты: BeanFactory, ApplicationContext, BeanDefinition, MBean, JMX
-                        - Паттерны: dependency injection, AOP, профилирование, перехват методов
-                    
+
+                        СПЕЦИАЛИЗАЦИЯ ПО МИРУ ГОЛАРИОНА (Pathfinder RPG):
+                        - Народы и родословные: тануки, кицунэ, тэнгу, эльфы, дварфы, люди, якши, яогаи
+                        - Континенты и регионы: Авистан, Тянь Ся, Внутреннее море, Плато Сторвал
+                        - Этнические группы: варисийцы, гарунди, келешиты, келлиды, талданы, тяньцы, ульфены, челийцы, шоанти
+                        - Божества и религия: Кофусачи, Цукио, Кайдэн Кейлин, Небесный Двор
+                        - Понятия: родословная, эдикты, анафемы, заклинания, магия, иллюзии, превращения
+
                         ПРАВИЛА:
                         1. Сохрани ВСЕ слова из исходного вопроса
                         2. Добавь МАКСИМУМ ПЯТЬ наиболее важных термина
                         3. Выбирай самые специфичные и релевантные слова
                         4. Результат - простой список слов через пробел
-                    
+
                         СТРАТЕГИЯ ВЫБОРА:
-                        - Приоритет: специализированные термины
+                        - Приоритет: названия народов, мест, божеств и игровых терминов Голариона
                         - Избегай общих слов
-                        - Фокусируйся на ключевых понятиях
-                    
+                        - Фокусируйся на лорных понятиях мира Pathfinder
+
                         ПРИМЕРЫ:
-                        "что такое спринг" → "что такое спринг фреймворк Java"
-                        "как создать файл" → "как создать файл документ программа"
-                    
+                        "расскажи про тануки" → "расскажи про тануки родословная Тянь Ся иллюзии енотовидные"
+                        "кто такой Кофусачи" → "кто такой Кофусачи божество Смеющийся Бог процветание"
+                        "какие народы живут в мире" → "какие народы живут в мире Голарион родословные Авистан Внутреннее море"
+                        "что за класс сыщик" → "что за класс сыщик расследование улики интеллект разведчик"
+
                         Question: {question}
                         Expanded query:
                     """).build();
@@ -65,7 +68,7 @@ public class ExpansionQueryAdvisor implements BaseAdvisor {
     public ChatClientRequest before(ChatClientRequest chatClientRequest, AdvisorChain advisorChain) {
 
         String userQuestion = chatClientRequest.prompt().getUserMessage().getText();
-        if (userQuestion == null || userQuestion.isBlank()) {
+        if (userQuestion.isBlank()) {
             return chatClientRequest;
         }
 
