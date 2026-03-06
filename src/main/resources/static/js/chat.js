@@ -43,7 +43,12 @@ document.addEventListener("DOMContentLoaded", function() {
         };
 
         eventSource.onerror = function(e) {
-            console.error("Ошибка SSE:", e);
+            // Браузер стреляет onerror и при нормальном закрытии соединения сервером.
+            // Если fullText не пустой — стрим завершился штатно, это не ошибка.
+            if (fullText.length === 0) {
+                console.error("Ошибка SSE:", e);
+                aiBubble.textContent = "Произошла ошибка при получении ответа.";
+            }
             eventSource.close();
         };
     });
