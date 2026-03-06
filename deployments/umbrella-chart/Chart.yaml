@@ -4,7 +4,7 @@ description: An umbrella Helm chart to deploy backend and gateway services
 version: 1.0.1
 dependencies:
   - name: llm-host-service
-    version: "0.1.1"
+    version: "0.1.2"
     repository: "file://charts/llm-host-service"
   - name: ollama-service
     version: "0.1.0"
