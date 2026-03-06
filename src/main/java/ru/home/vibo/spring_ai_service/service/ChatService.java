@@ -141,9 +141,25 @@ public class ChatService {
     }
 
     public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
-        StringBuffer answer = new StringBuffer();
         SseEmitter sseEmitter = new SseEmitter();
 
+        // Весь блок обработки запускается в отдельном виртуальном потоке.
+        // Это обязательно: SseEmitter должен быть возвращён контроллером ДО того,
+        // как Tomcat переключится в async-режим. Любой вызов sseEmitter.send/complete
+        // на том же потоке запроса приводит к RecycleRequiredException.
+        Thread.ofVirtual().name("chat-stream-" + chatId).start(() -> {
+            try {
+                doStreamInteraction(chatId, userPrompt, sseEmitter);
+            } catch (Exception e) {
+                log.error("proceedInteractionWithStreaming: unexpected error for chatId={}", chatId, e);
+                sseEmitter.completeWithError(e);
+            }
+        });
+
+        return sseEmitter;
+    }
+
+    private void doStreamInteraction(Long chatId, String userPrompt, SseEmitter sseEmitter) {
         // Фаза 1: блокирующий вызов для детекции <tool_call>.
         // Нельзя стримить — паттерн <tool_call> виден только в полном тексте ответа.
         // MessageChatMemoryAdvisor загружает историю диалога и сохраняет этот обмен в БД.
@@ -156,16 +172,16 @@ public class ChatService {
                 .chatResponse();
 
         if (firstResponse == null) {
-            log.error("proceedInteractionWithStreaming: LLM returned null response for chatId={}", chatId);
+            log.error("doStreamInteraction: LLM returned null response for chatId={}", chatId);
             sendErrorAndComplete(sseEmitter, "Модель не вернула ответ. Попробуйте ещё раз.");
-            return sseEmitter;
+            return;
         }
 
         AssistantMessage assistantMessage = firstResponse.getResult().getOutput();
         if (assistantMessage.getText() == null) {
-            log.error("proceedInteractionWithStreaming: LLM returned null output for chatId={}", chatId);
+            log.error("doStreamInteraction: LLM returned null output for chatId={}", chatId);
             sendErrorAndComplete(sseEmitter, "Получен пустой ответ от модели.");
-            return sseEmitter;
+            return;
         }
 
         if (CallToolUtil.isToolRequired(assistantMessage.getText())) {
@@ -173,54 +189,40 @@ public class ChatService {
 
             if (client == null) {
                 // MCP недоступен — модель сгенерировала <tool_call>, но сервер не подключён.
-                log.warn("proceedInteractionWithStreaming: tool call requested but MCP client is unavailable");
-                try {
-                    sseEmitter.send(SseEmitter.event()
-                            .data("Инструмент недоступен: MCP-сервер не подключён."));
-                    sseEmitter.complete();
-                } catch (IOException e) {
-                    log.warn("proceedInteractionWithStreaming: failed to send MCP unavailable message", e);
-                    sseEmitter.completeWithError(e);
-                }
-                return sseEmitter;
+                // Сохраняем сообщение об ошибке как ответ ASSISTANT, чтобы не терять историю.
+                log.warn("doStreamInteraction: tool call requested but MCP client is unavailable");
+                String msg = "Инструмент недоступен: MCP-сервер не подключён.";
+                proxyService.addChatEntry(chatId, msg, ASSISTANT);
+                sendErrorAndComplete(sseEmitter, msg);
+                return;
             }
 
-            // toolResolutionClient — без RAG, Expansion и Memory advisors.
-            // Передаём полный контекст явно: user → <tool_call> → tool_response.
-            // Финальный ответ стримим пользователю, сохраняем только его в БД.
             Optional<McpSchema.CallToolRequest> callToolRequestOpt =
                     CallToolUtil.getRequiredTool(assistantMessage.getText(), allowedTools);
 
             if (callToolRequestOpt.isEmpty()) {
-                log.warn("proceedInteractionWithStreaming: invalid or unparseable tool call, aborting tool phase");
-                try {
-                    sseEmitter.send(SseEmitter.event()
-                            .data("Не удалось обработать запрос к инструменту. Попробуйте переформулировать вопрос."));
-                    sseEmitter.complete();
-                } catch (IOException e) {
-                    log.warn("proceedInteractionWithStreaming: failed to send error message to SSE", e);
-                    sseEmitter.completeWithError(e);
-                }
-                return sseEmitter;
+                log.warn("doStreamInteraction: invalid or unparseable tool call, aborting tool phase");
+                sendErrorAndComplete(sseEmitter, "Не удалось обработать запрос к инструменту. Попробуйте переформулировать вопрос.");
+                return;
             }
 
             McpSchema.CallToolResult toolCallResult = callTool(callToolRequestOpt.get());
             if (toolCallResult == null || toolCallResult.content() == null || toolCallResult.content().isEmpty()) {
-                log.error("proceedInteractionWithStreaming: MCP tool returned empty content for chatId={}", chatId);
+                log.error("doStreamInteraction: MCP tool returned empty content for chatId={}", chatId);
                 sendErrorAndComplete(sseEmitter, "Инструмент не вернул результат.");
-                return sseEmitter;
+                return;
             }
             String toolResponse = CallToolUtil.wrapResponse(toolCallResult.content().getFirst().toString());
 
             AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
 
             sseEmitter.onTimeout(() -> {
-                log.warn("proceedInteractionWithStreaming: SSE timeout for chatId={}", chatId);
+                log.warn("doStreamInteraction: SSE timeout for chatId={}", chatId);
                 Disposable sub = subscriptionRef.get();
                 if (sub != null && !sub.isDisposed()) sub.dispose();
             });
             sseEmitter.onError(ex -> {
-                log.warn("proceedInteractionWithStreaming: SSE error for chatId={}", chatId, ex);
+                log.warn("doStreamInteraction: SSE error for chatId={}", chatId, ex);
                 Disposable sub = subscriptionRef.get();
                 if (sub != null && !sub.isDisposed()) sub.dispose();
             });
@@ -229,6 +231,7 @@ public class ChatService {
             // systemPrompt (персона) зашит в бин через defaultSystem.
             // Передаём полный контекст явно: user → <tool_call> → tool_response.
             // Финальный ответ стримим пользователю, сохраняем только его в БД.
+            StringBuffer answer = new StringBuffer();
             Disposable subscription = toolResolutionClient.prompt()
                     .messages(List.of(new UserMessage(userPrompt), assistantMessage, new UserMessage(toolResponse)))
                     .stream()
@@ -250,11 +253,9 @@ public class ChatService {
         } else {
             // Фаза 2b: тул не нужен.
             // MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
-            processToken(firstResponse, sseEmitter, answer);
+            processToken(firstResponse, sseEmitter, new StringBuffer());
             sseEmitter.complete();
         }
-
-        return sseEmitter;
     }
 
     private void processToken(ChatResponse response, SseEmitter emitter, StringBuffer answer) {
