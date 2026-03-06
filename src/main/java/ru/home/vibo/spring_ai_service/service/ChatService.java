@@ -74,7 +74,7 @@ public class ChatService {
         try {
             var transport = HttpClientStreamableHttpTransport.builder(mcpServerUrl)
                     .endpoint("/mcpserver")
-                    .customizeRequest(r -> r.timeout(Duration.ofSeconds(30)))
+//                    .customizeRequest(r -> r.timeout(Duration.ofSeconds(30)))
                     .build();
             client = McpClient.sync(transport).build();
             client.initialize();
@@ -142,7 +142,7 @@ public class ChatService {
 
     public SseEmitter proceedInteractionWithStreaming(Long chatId, String userPrompt) {
         StringBuffer answer = new StringBuffer();
-        SseEmitter sseEmitter = new SseEmitter(300_000L);
+        SseEmitter sseEmitter = new SseEmitter();
 
         // Фаза 1: блокирующий вызов для детекции <tool_call>.
         // Нельзя стримить — паттерн <tool_call> виден только в полном тексте ответа.
