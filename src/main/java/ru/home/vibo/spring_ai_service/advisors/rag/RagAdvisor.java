@@ -67,7 +67,13 @@ public class RagAdvisor implements BaseAdvisor {
                      queryToRag, originalUserQuestion,
                      searchRequest.getTopK() * OVERSAMPLING_FACTOR,
                      searchRequest.getSimilarityThreshold());
-            return chatClientRequest;
+            String finalUserPrompt = template.render(
+                    Map.of("context", "",
+                            "question", originalUserQuestion));
+            return chatClientRequest
+                    .mutate()
+                    .prompt(chatClientRequest.prompt().augmentUserMessage(finalUserPrompt))
+                    .build();
         }
 
         int candidateCount = documents.size();
