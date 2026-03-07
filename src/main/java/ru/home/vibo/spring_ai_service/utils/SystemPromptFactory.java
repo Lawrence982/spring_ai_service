@@ -30,7 +30,11 @@ public class SystemPromptFactory {
             """;
 
     public static String withTools(McpSchema.ListToolsResult toolsResult) {
-        String toolsInfo = toolsResult.tools().stream()
+        return withTools(toolsResult.tools());
+    }
+
+    public static String withTools(List<McpSchema.Tool> tools) {
+        String toolsInfo = tools.stream()
                 .map(SystemPromptFactory::formatTool)
                 .collect(Collectors.joining("\n"));
 

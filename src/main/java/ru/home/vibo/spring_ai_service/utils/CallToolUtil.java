@@ -27,6 +27,25 @@ public class CallToolUtil {
         return TOOL_CALL_PATTERN.matcher(modelAnswer).find();
     }
 
+    /**
+     * Возвращает true если <tool_call> является мусорным (spurious):
+     * модель сначала дала содержательный текстовый ответ, а потом добавила тег.
+     * Порог 50 символов до тега — достаточно для любого осмысленного предложения.
+     */
+    public static boolean isSpuriousToolCall(String modelAnswer) {
+        Matcher matcher = TOOL_CALL_PATTERN.matcher(modelAnswer);
+        if (!matcher.find()) return false;
+        String textBefore = modelAnswer.substring(0, matcher.start()).strip();
+        return textBefore.length() > 50;
+    }
+
+    /**
+     * Удаляет <tool_call>...</tool_call> из текста ответа.
+     */
+    public static String stripToolCall(String modelAnswer) {
+        return TOOL_CALL_PATTERN.matcher(modelAnswer).replaceAll("").strip();
+    }
+
     public static String wrapResponse(String toolResult) {
         return String.format("<tool_response>%n%s%n</tool_response>", toolResult);
     }

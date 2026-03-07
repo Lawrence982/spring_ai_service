@@ -1,7 +1,6 @@
 package ru.home.vibo.spring_ai_service.service;
 
 import io.modelcontextprotocol.spec.McpSchema;
-import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,14 +48,6 @@ public class ChatService {
     @Autowired
     private ChatEntryPersistence entryPersistence;
 
-    @PostConstruct
-    public void configureSystemPrompt() {
-        // McpClientManager.init() уже выполнился (Spring инициализирует зависимости первыми)
-        // Переопределяем chatClient с полным системным промптом (персона + MCP-инструменты если доступны)
-        this.chatClient = this.chatClient.mutate()
-                .defaultSystem(mcpClientManager.getSystemPrompt())
-                .build();
-    }
 
     public List<Chat> getAllChats() {
         return chatRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -78,6 +69,7 @@ public class ChatService {
 
     public void proceedInteraction(Long chatId, String prompt) {
         chatClient.prompt()
+                .system(mcpClientManager.getSystemPromptForQuestion(prompt))
                 .user(prompt)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
@@ -140,12 +132,20 @@ public class ChatService {
             return;
         }
 
-        if (CallToolUtil.isToolRequired(assistantMessage.getText())) {
+        boolean toolRequired = CallToolUtil.isToolRequired(assistantMessage.getText());
+
+        if (toolRequired && !CallToolUtil.isSpuriousToolCall(assistantMessage.getText())) {
             executePhase2WithTool(chatId, userPrompt, assistantMessage, sseEmitter);
         } else {
-            // Фаза 2b: тул не нужен.
-            // MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
-            executePhase2Direct(assistantMessage, sseEmitter);
+            // Фаза 2b: тул не нужен либо <tool_call> мусорный (модель ответила, но добавила тег).
+            String cleanText = CallToolUtil.stripToolCall(assistantMessage.getText());
+            if (toolRequired) {
+                // Spurious tool_call: MessageChatMemoryAdvisor отфильтровал ответ из-за тега — сохраняем вручную.
+                log.warn("doPhases: spurious tool_call stripped for chatId={}", chatId);
+                entryPersistence.addEntry(chatId, cleanText, ASSISTANT);
+            }
+            // Иначе MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
+            executePhase2Direct(new AssistantMessage(cleanText), sseEmitter);
         }
     }
 
@@ -154,6 +154,7 @@ public class ChatService {
         // systemPrompt зашит в chatClient через mutate() в @PostConstruct.
         ChatResponse firstResponse = chatClient
                 .prompt()
+                .system(mcpClientManager.getSystemPromptForQuestion(userPrompt))
                 .user(userPrompt)
                 .advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
