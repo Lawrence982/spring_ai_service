@@ -134,18 +134,11 @@ public class ChatService {
 
         boolean toolRequired = CallToolUtil.isToolRequired(assistantMessage.getText());
 
-        if (toolRequired && !CallToolUtil.isSpuriousToolCall(assistantMessage.getText())) {
+        if (toolRequired) {
             executePhase2WithTool(chatId, userPrompt, assistantMessage, sseEmitter);
         } else {
-            // Фаза 2b: тул не нужен либо <tool_call> мусорный (модель ответила, но добавила тег).
-            String cleanText = CallToolUtil.stripToolCall(assistantMessage.getText());
-            if (toolRequired) {
-                // Spurious tool_call: MessageChatMemoryAdvisor отфильтровал ответ из-за тега — сохраняем вручную.
-                log.warn("doPhases: spurious tool_call stripped for chatId={}", chatId);
-                entryPersistence.addEntry(chatId, cleanText, ASSISTANT);
-            }
             // Иначе MessageChatMemoryAdvisor из фазы 1 уже сохранил пару user/assistant в БД.
-            executePhase2Direct(new AssistantMessage(cleanText), sseEmitter);
+            executePhase2Direct(assistantMessage, sseEmitter);
         }
     }
 

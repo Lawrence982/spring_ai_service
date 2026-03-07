@@ -27,7 +27,7 @@ public class McpClientManager {
 
     private static final Logger log = LoggerFactory.getLogger(McpClientManager.class);
 
-    private static final double TOOL_SIMILARITY_THRESHOLD = 0.35;
+    private static final double TOOL_SIMILARITY_THRESHOLD = 0.365;
 
     @Autowired
     private EmbeddingModel embeddingModel;
@@ -145,14 +145,13 @@ public class McpClientManager {
     }
 
     private McpSchema.CallToolResult callTool(McpSchema.CallToolRequest request) {
-        // Таймаут 30s настроен на уровне транспорта через customizeRequest().
         // HttpTimeoutException пробрасывается как причина RuntimeException из MCP SDK.
         try {
             return client.callTool(request);
         } catch (RuntimeException e) {
             Throwable cause = e.getCause();
             if (cause instanceof HttpTimeoutException) {
-                log.error("callTool: MCP tool call timed out after 30s for tool={}", request.name());
+                log.error("callTool: MCP tool call timed out for tool={}", request.name());
             } else {
                 log.error("callTool: MCP tool call failed for tool={}", request.name(), e);
             }

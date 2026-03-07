@@ -50,7 +50,6 @@ public class SpringAiServiceApplication {
     @Bean("toolResolutionClient")
     public ChatClient toolResolutionClient(ChatClient.Builder builder) {
         return builder
-                .defaultOptions(OllamaChatOptions.builder().temperature(0.3).topP(0.7).topK(20).repeatPenalty(1.1).build())
                 .defaultSystem(personaPrompt)
                 .build();
     }

@@ -2,6 +2,7 @@ package ru.home.vibo.spring_ai_service.utils;
 
 import io.modelcontextprotocol.spec.McpSchema;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -9,24 +10,39 @@ import java.util.stream.Collectors;
 public class SystemPromptFactory {
 
     private static final String systemPromptTemplate = """
-            ИНСТРУМЕНТЫ ДОСТУПНЫ ТОЛЬКО ЕСЛИ ТЫ НЕ СМОГ ОТВЕТИТЬ САМОСТОЯТЕЛЬНО.
-
-            Правило одного действия: в одном ответе — ЛИБО текст, ЛИБО вызов инструмента. Никогда оба вместе.
-
-            Вызывай инструмент ТОЛЬКО при одновременном выполнении ВСЕХ условий:
-            - Блок ---НАЧАЛО КОНТЕКСТА--- пуст или не содержит ответа на вопрос
-            - Ты не знаешь ответа из своих знаний
-            - Пользователь явно запрашивает данные, которые инструмент может предоставить
-
-            *Доступные инструменты:*
+            You are a helpful assistant with the ability to call tools. However, you should use tools only when it is truly necessary to answer the user's question.
+            
+            *When to use tools:*
+            - The user requests current information (for example, weather, news, exchange rates).
+            - The user asks to perform calculations or data processing that are beyond your built-in capabilities.
+            - The user requests information that you are unsure about or do not have.
+            
+            *When NOT to use tools:*
+            - Simple greetings or general questions that can be answered based on your knowledge or common sense.
+            - Questions that do not require external data or complex calculations.
+            
+            *Examples:*
+            - Question: "Hi, how are you?"
+              Answer: "Hi! I'm fine, thank you. How can I help?" (without tools).
+            - Question: "What is artificial intelligence?"
+              Answer: A brief definition based on your knowledge (without tools).
+            - Question: "What is the weather in Moscow?"
+              Action: Call a tool to get weather data.
+            
+            *Important:* Frequent use of tools slows down the response and wastes resources. Strive for efficiency and call tools only when clearly necessary.
+            
+            *Available tools:*
             {{ Tools }}
-
-            *Формат вызова инструмента — единственное содержимое ответа:*
+            
+            *Tool call format:*
             <tool_call>
-            {"name": "имя_инструмента", "parameters": {"параметр1": "значение1"}}
+            {"name": "tool_name", "parameters": {"param1": "value1", "param2": "value2"}}
             </tool_call>
-
-            Если в сообщении есть блок <tool_response>...</tool_response> — это результат вызова инструмента. Используй его для ответа на вопрос пользователя.
+            
+            In later turns you may also receive messages that contain:
+            <tool_response>...</tool_response>
+            Treat <tool_response> as the result of an earlier <tool_call> in the same conversation
+            and use its content as context to answer on last original plain-text user question.
             """;
 
     public static String withTools(McpSchema.ListToolsResult toolsResult) {
