@@ -233,7 +233,7 @@ public class ChatService {
                         },
                         () -> {
                             // Фаза 1 уже сохранила userPrompt — сохраняем только финальный ответ ASSISTANT
-                            entryPersistence.addEntry(chatId, answer.toString(), ASSISTANT);
+                            entryPersistence.addEntry(chatId, answer.toString(), ASSISTANT, true);
                             sseEmitter.complete();
                         }
                 );

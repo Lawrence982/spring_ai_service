@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/003-create-rag-tables.sql
   - include:
       file: db/changelog/changes/004-create-indexes.sql
+  - include:
+      file: db/changelog/changes/005-add-from-tool-to-chat-entry.sql

@@ -40,7 +40,9 @@ public class PostgresChatMemory implements ChatMemory {
         return chat.getHistory()
                 .stream()
                 .skip(messagesToSkip)
-                .map(ChatEntry::toMessage)
+                .map(entry -> entry.isFromTool()
+                        ? new AssistantMessage("<tool_used/>\n" + entry.getContent())
+                        : entry.toMessage())
                 .toList();
     }
 

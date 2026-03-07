@@ -29,6 +29,8 @@ public class ChatEntry {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
+    private boolean fromTool;
+
     public static ChatEntry toChatEntry(Message message) {
         return ChatEntry.builder()
                 .role(Role.getRole(message.getMessageType().getValue()))
