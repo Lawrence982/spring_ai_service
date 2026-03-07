@@ -17,13 +17,8 @@ public class ChatEntryPersistence {
 
     @Transactional
     public void addEntry(Long chatId, String content, Role role) {
-        addEntry(chatId, content, role, false);
-    }
-
-    @Transactional
-    public void addEntry(Long chatId, String content, Role role, boolean fromTool) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new EntityNotFoundException("Chat not found: " + chatId));
-        chat.addChatEntry(ChatEntry.builder().content(content).role(role).fromTool(fromTool).build());
+        chat.addChatEntry(ChatEntry.builder().content(content).role(role).build());
     }
 }
