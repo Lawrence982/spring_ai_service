@@ -213,7 +213,7 @@ public class ChatService {
         // systemPrompt (персона) зашит в бин через defaultSystem.
         // Передаём полный контекст явно: user → <tool_call> → tool_response.
         // Финальный ответ стримим пользователю, сохраняем только его в БД.
-        StringBuffer answer = new StringBuffer();
+        StringBuilder answer = new StringBuilder();
         Disposable subscription = toolResolutionClient.prompt()
                 .messages(List.of(new UserMessage(userPrompt), assistantMessage, new UserMessage(toolResponse)))
                 .stream()
