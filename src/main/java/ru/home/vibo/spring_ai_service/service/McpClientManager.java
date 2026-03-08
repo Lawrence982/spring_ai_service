@@ -138,16 +138,21 @@ public class McpClientManager {
     /**
      * Парсит &lt;tool_call&gt; из ответа модели и выполняет вызов MCP-инструмента.
      * Возвращает {@link Optional#empty()} при ошибке парсинга или сбое инструмента.
+     * Два случая разделены в логах: parse error vs MCP execution failure.
      */
     public Optional<McpSchema.CallToolResult> executeTool(String modelAnswer) {
         Optional<McpSchema.CallToolRequest> requestOpt = CallToolUtil.getRequiredTool(modelAnswer, allowedTools);
-        return requestOpt.map(this::callTool);
+        if (requestOpt.isEmpty()) {
+            log.warn("executeTool: no parseable <tool_call> in model response");
+            return Optional.empty();
+        }
+        return callTool(requestOpt.get());
     }
 
-    private McpSchema.CallToolResult callTool(McpSchema.CallToolRequest request) {
+    private Optional<McpSchema.CallToolResult> callTool(McpSchema.CallToolRequest request) {
         // HttpTimeoutException пробрасывается как причина RuntimeException из MCP SDK.
         try {
-            return client.callTool(request);
+            return Optional.ofNullable(client.callTool(request));
         } catch (RuntimeException e) {
             Throwable cause = e.getCause();
             if (cause instanceof HttpTimeoutException) {
@@ -155,7 +160,7 @@ public class McpClientManager {
             } else {
                 log.error("callTool: MCP tool call failed for tool={}", request.name(), e);
             }
-            return null;
+            return Optional.empty();
         }
     }
 }

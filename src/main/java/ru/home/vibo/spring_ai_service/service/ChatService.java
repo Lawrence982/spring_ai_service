@@ -182,8 +182,8 @@ public class ChatService {
 
         Optional<McpSchema.CallToolResult> toolResultOpt = mcpClientManager.executeTool(assistantMessage.getText());
         if (toolResultOpt.isEmpty()) {
-            log.warn("executePhase2WithTool: invalid or unparseable tool call, aborting tool phase");
-            sendErrorAndComplete(sseEmitter, "Не удалось обработать запрос к инструменту. Попробуйте переформулировать вопрос.");
+            log.warn("executePhase2WithTool: tool call failed (parse error or MCP execution error), aborting tool phase");
+            sendErrorAndComplete(sseEmitter, "Ошибка при вызове инструмента. Попробуйте позже.");
             return;
         }
 

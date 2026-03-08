@@ -22,15 +22,6 @@ public class BM25RerankEngine {
             .fromLanguages(Language.ENGLISH, Language.RUSSIAN)
             .build();
 
-    // Thread-safe for Tomcat thread pool (Lucene ReuseStrategy uses CloseableThreadLocal).
-    // WARNING: при миграции на виртуальные потоки (Project Loom) пересмотреть стратегию кеширования —
-    // CloseableThreadLocal ресурсы не освобождаются, т.к. close() не вызывается на статических экземплярах.
-    private static final Map<Language, Analyzer> ANALYZER_CACHE = Map.of(
-            Language.ENGLISH, new EnglishAnalyzer(),
-            Language.RUSSIAN, new RussianAnalyzer()
-    );
-    private static final Analyzer DEFAULT_ANALYZER = ANALYZER_CACHE.get(Language.ENGLISH);
-
     // BM25 parameters
     @Builder.Default
     private final double K = 1.2;
@@ -117,9 +108,8 @@ public class BM25RerankEngine {
 
     private List<String> tokenize(String text) {
         List<String> tokens = new ArrayList<>();
-        Analyzer analyzer = resolveAnalyzer(text);
-
-        try (TokenStream stream = analyzer.tokenStream(null, text)) {
+        try (Analyzer analyzer = createAnalyzer(text);
+             TokenStream stream = analyzer.tokenStream(null, text)) {
             stream.reset();
             while (stream.incrementToken()) {
                 tokens.add(stream.getAttribute(CharTermAttribute.class).toString());
@@ -128,13 +118,15 @@ public class BM25RerankEngine {
         } catch (IOException e) {
             throw new RuntimeException("Tokenization failed", e);
         }
-
         return tokens;
     }
 
-    private Analyzer resolveAnalyzer(String text) {
+    private Analyzer createAnalyzer(String text) {
         Language lang = languageDetector.detectLanguageOf(text);
-        return ANALYZER_CACHE.getOrDefault(lang, DEFAULT_ANALYZER);
+        return switch (lang) {
+            case RUSSIAN -> new RussianAnalyzer();
+            default -> new EnglishAnalyzer();
+        };
     }
 
     // Inner class to hold corpus statistics
