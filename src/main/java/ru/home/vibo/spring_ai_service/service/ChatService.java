@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.Disposable;
 import ru.home.vibo.spring_ai_service.model.Chat;
 import ru.home.vibo.spring_ai_service.repository.ChatRepository;
 import ru.home.vibo.spring_ai_service.utils.CallToolUtil;
@@ -23,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import reactor.core.Disposable;
 
 import static ru.home.vibo.spring_ai_service.model.Role.ASSISTANT;
 
@@ -247,7 +247,7 @@ public class ChatService {
         }
     }
 
-    private void processToken(ChatResponse response, SseEmitter emitter, StringBuffer answer) {
+    private void processToken(ChatResponse response, SseEmitter emitter, StringBuilder answer) {
         var token = response.getResult().getOutput();
         try {
             emitter.send(token);
