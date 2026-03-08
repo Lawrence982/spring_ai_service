@@ -220,11 +220,7 @@ public class ChatService {
                 .chatResponse()
                 .subscribe(
                         response -> processToken(response, sseEmitter, answer),
-                        error -> {
-                            Disposable sub = subscriptionRef.get();
-                            if (sub != null) sub.dispose();
-                            sseEmitter.completeWithError(error);
-                        },
+                        error -> sseEmitter.completeWithError(error),
                         () -> {
                             // Фаза 1 уже сохранила userPrompt — сохраняем только финальный ответ ASSISTANT
                             entryPersistence.addEntry(chatId, answer.toString(), ASSISTANT);
