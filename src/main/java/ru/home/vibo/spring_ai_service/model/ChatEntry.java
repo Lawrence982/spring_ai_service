@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.ai.chat.messages.Message;
 
@@ -28,6 +30,12 @@ public class ChatEntry {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_id", insertable = true, updatable = false)
+    private Chat chat;
 
     public static ChatEntry toChatEntry(Message message) {
         return ChatEntry.builder()
