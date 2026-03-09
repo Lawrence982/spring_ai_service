@@ -1,6 +1,7 @@
 package ru.home.vibo.spring_ai_service.service;
 
 import io.modelcontextprotocol.spec.McpSchema;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
