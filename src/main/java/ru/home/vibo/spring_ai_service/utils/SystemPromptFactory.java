@@ -34,18 +34,9 @@ public class SystemPromptFactory {
             *Available tools:*
             {{ Tools }}
             
-            *How to call a tool:*
-            To call a tool, output ONLY the following XML block and nothing else on that turn.
-            Use the exact "name" value from the tool list above.
-
-            If the tool requires parameters:
+            *Tool call format:*
             <tool_call>
-            {"name": "getWeather", "parameters": {"city": "Moscow"}}
-            </tool_call>
-
-            If the tool requires no parameters:
-            <tool_call>
-            {"name": "bioSenser", "parameters": {}}
+            {"name": "tool_name", "parameters": {"param1": "value1", "param2": "value2"}}
             </tool_call>
             
             In later turns you may also receive messages that contain:
