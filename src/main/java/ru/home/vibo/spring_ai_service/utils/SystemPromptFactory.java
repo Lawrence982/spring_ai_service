@@ -10,48 +10,17 @@ import java.util.stream.Collectors;
 public class SystemPromptFactory {
 
     private static final String systemPromptTemplate = """
-            You are a helpful assistant with the ability to call tools. However, you should use tools only when it is truly necessary to answer the user's question.
-            
-            *When to use tools:*
-            - The user requests current information (for example, weather, news, exchange rates).
-            - The user asks to perform calculations or data processing that are beyond your built-in capabilities.
-            - The user requests information that you are unsure about or do not have.
-            
-            *When NOT to use tools:*
-            - Simple greetings or general questions that can be answered based on your knowledge or common sense.
-            - Questions that do not require external data or complex calculations.
-            
-            *Examples:*
-            - Question: "Hi, how are you?"
-              Answer: "Hi! I'm fine, thank you. How can I help?" (without tools).
-            - Question: "What is artificial intelligence?"
-              Answer: A brief definition based on your knowledge (without tools).
-            - Question: "What is the weather in Moscow?"
-              Action: Call a tool to get weather data.
-            
-            *Important:* Frequent use of tools slows down the response and wastes resources. Strive for efficiency and call tools only when clearly necessary.
-            
-            *Available tools:*
+            *Доступные инструменты:*
             {{ Tools }}
-            
-            *How to call a tool:*                                                                                                                                 \s
-            To call a tool, output ONLY the following XML block and nothing else on that turn.                                                                    \s
-             Use the exact "name" value from the tool list above.                                                                                                  \s
-            
-            If the tool requires parameters:                                                                                                                      \s
-            <tool_call>
-            {"name": "getWeather", "parameters": {"city": "Moscow"}}                                                                                              \s
-            </tool_call>
-            
-            If the tool requires no parameters:                                                                                                                   \s
-            <tool_call>                                                                                                                                           \s
-            {"name": "bioSenser", "parameters": {}}                                                                                                               \s
-            </tool_call>
-            
-            In later turns you may also receive messages that contain:
-            <tool_response>...</tool_response>
-            Treat <tool_response> as the result of an earlier <tool_call> in the same conversation
-            and use its content as context to answer on last original plain-text user question.
+
+            *Вызов инструмента:*
+            Когда нужен инструмент — ответь РОВНО ЭТИМ текстом (включая теги <tool_call> и </tool_call>):
+
+            {{ Example }}
+
+            Теги обязательны. Ни слова до. Ни слова после. НЕ выдумывай результат — жди ответа системы.
+
+            Когда придут данные инструмента — используй их для ответа на вопрос.
             """;
 
     public static String withTools(McpSchema.ListToolsResult toolsResult) {
@@ -63,7 +32,41 @@ public class SystemPromptFactory {
                 .map(SystemPromptFactory::formatTool)
                 .collect(Collectors.joining("\n"));
 
-        return systemPromptTemplate.replace("{{ Tools }}", toolsInfo);
+        String example = tools.isEmpty() ? DEFAULT_EXAMPLE : generateExample(tools.get(0));
+
+        return systemPromptTemplate
+                .replace("{{ Tools }}", toolsInfo)
+                .replace("{{ Example }}", example);
+    }
+
+    private static final String DEFAULT_EXAMPLE =
+            "<tool_call>\n{\"name\": \"toolName\", \"parameters\": {}}\n</tool_call>";
+
+    private static String generateExample(McpSchema.Tool tool) {
+        McpSchema.JsonSchema schema = tool.inputSchema();
+        if (schema == null || schema.properties() == null || schema.properties().isEmpty()) {
+            return "<tool_call>\n{\"name\": \"" + tool.name() + "\", \"parameters\": {}}\n</tool_call>";
+        }
+        StringBuilder params = new StringBuilder();
+        boolean first = true;
+        for (Map.Entry<String, Object> entry : schema.properties().entrySet()) {
+            if (!first) params.append(", ");
+            String sampleValue = resolveSampleValue(entry.getValue());
+            params.append("\"").append(entry.getKey()).append("\": ").append(sampleValue);
+            first = false;
+        }
+        return "<tool_call>\n{\"name\": \"" + tool.name() + "\", \"parameters\": {" + params + "}}\n</tool_call>";
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String resolveSampleValue(Object propSchema) {
+        if (!(propSchema instanceof Map<?, ?> map)) return "\"value\"";
+        String type = (String) ((Map<String, Object>) map).getOrDefault("type", "string");
+        return switch (type) {
+            case "integer", "number" -> "7";
+            case "boolean" -> "true";
+            default -> "\"example\"";
+        };
     }
 
     private static String formatTool(McpSchema.Tool tool) {

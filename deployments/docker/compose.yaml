@@ -38,7 +38,7 @@ services:
       /bin/sh -c "
         ollama serve &
         sleep 2 &&
-        ollama pull gemma3:4b-it-q4_K_M     
+        ollama pull qwen2.5:14b-instruct-q4_K_M     
         ollama pull mxbai-embed-large &&
         wait
       "

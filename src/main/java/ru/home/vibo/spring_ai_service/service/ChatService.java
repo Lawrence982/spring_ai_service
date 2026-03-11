@@ -70,7 +70,7 @@ public class ChatService {
 
     public void proceedInteraction(Long chatId, String prompt) {
         chatClient.prompt()
-                .system(mcpClientManager.getSystemPromptForQuestion(prompt))
+                .system(mcpClientManager.getSystemPrompt())
                 .user(prompt)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
@@ -148,7 +148,7 @@ public class ChatService {
         // systemPrompt зашит в chatClient через mutate() в @PostConstruct.
         ChatResponse firstResponse = chatClient
                 .prompt()
-                .system(mcpClientManager.getSystemPromptForQuestion(userPrompt))
+                .system(mcpClientManager.getSystemPrompt())
                 .user(userPrompt)
                 .advisors(advisorSpec -> advisorSpec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
