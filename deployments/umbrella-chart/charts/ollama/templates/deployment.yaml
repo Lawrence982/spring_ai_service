@@ -19,7 +19,7 @@ spec:
         - image: {{ .Values.IMAGE.REPOSITORY }}:{{ .Values.IMAGE.TAG }}
           name: ollama
           command: ["/bin/sh", "-c"]
-          args: ["ollama serve & sleep 5 && ollama pull gemma3:4b-it-q4_K_M && ollama pull mxbai-embed-large && wait"]
+          args: ["ollama serve & sleep 5 && ollama pull qwen2.5:14b-instruct-q4_K_M && ollama pull mxbai-embed-large && wait"]
           volumeMounts:
             - name: ollama-storage
               mountPath: /root/.ollama

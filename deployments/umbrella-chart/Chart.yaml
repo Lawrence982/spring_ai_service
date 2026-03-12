@@ -7,7 +7,7 @@ dependencies:
     version: "0.1.2"
     repository: "file://charts/llm-host-service"
   - name: ollama-service
-    version: "0.1.0"
+    version: "0.2.0"
     repository: "file://charts/ollama"
   - name: postgres-service
     version: "0.1.1"
