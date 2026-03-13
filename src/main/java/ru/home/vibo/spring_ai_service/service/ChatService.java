@@ -22,6 +22,7 @@ import ru.home.vibo.spring_ai_service.utils.CallToolUtil;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -199,17 +200,6 @@ public class ChatService {
 
         AtomicReference<Disposable> subscriptionRef = new AtomicReference<>();
 
-        sseEmitter.onTimeout(() -> {
-            log.warn("executePhase2WithTool: SSE timeout for chatId={}", chatId);
-            Disposable sub = subscriptionRef.get();
-            if (sub != null && !sub.isDisposed()) sub.dispose();
-        });
-        sseEmitter.onError(ex -> {
-            log.warn("executePhase2WithTool: SSE error for chatId={}", chatId, ex);
-            Disposable sub = subscriptionRef.get();
-            if (sub != null && !sub.isDisposed()) sub.dispose();
-        });
-
         // toolResolutionClient — без RAG, Expansion и Memory advisors.
         // systemPrompt (персона) зашит в бин через defaultSystem.
         // Передаём полный контекст явно: user → <tool_call> → tool_response.
@@ -228,7 +218,20 @@ public class ChatService {
                             sseEmitter.complete();
                         }
                 );
+        // subscriptionRef устанавливается ДО регистрации onTimeout/onError,
+        // чтобы колбэки всегда могли отменить подписку без race condition.
         subscriptionRef.set(subscription);
+
+        sseEmitter.onTimeout(() -> {
+            log.warn("executePhase2WithTool: SSE timeout for chatId={}", chatId);
+            Disposable sub = subscriptionRef.get();
+            if (sub != null && !sub.isDisposed()) sub.dispose();
+        });
+        sseEmitter.onError(ex -> {
+            log.warn("executePhase2WithTool: SSE error for chatId={}", chatId, ex);
+            Disposable sub = subscriptionRef.get();
+            if (sub != null && !sub.isDisposed()) sub.dispose();
+        });
     }
 
     private void executePhase2Direct(AssistantMessage assistantMessage, SseEmitter sseEmitter) {
@@ -248,7 +251,7 @@ public class ChatService {
         var token = response.getResult().getOutput();
         try {
             emitter.send(token);
-            answer.append(token.getText());
+            answer.append(Objects.toString(token.getText(), ""));
         } catch (IOException e) {
             log.warn("processToken: client disconnected, completing emitter", e);
             emitter.completeWithError(e);

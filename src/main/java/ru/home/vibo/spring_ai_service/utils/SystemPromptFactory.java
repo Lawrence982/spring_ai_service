@@ -9,9 +9,11 @@ import java.util.stream.Collectors;
 
 public class SystemPromptFactory {
 
-    private static final String systemPromptTemplate = """
+    private static final String TOOLS_PROMPT_PREFIX = """
             *Доступные инструменты:*
-            {{ Tools }}
+            """;
+
+    private static final String TOOLS_PROMPT_SUFFIX = """
 
             *Вызов инструмента:*
             Когда нужен инструмент — ответь согласно формату ниже (включая теги <tool_call> и </tool_call>):
@@ -24,7 +26,7 @@ public class SystemPromptFactory {
             Теги обязательны. Ни слова до. Ни слова после. НЕ выдумывай результат — жди ответа системы.
             ЗАПРЕЩЕНО: говорить о намерении вызвать инструмент, предлагать его использование, объяснять решение,
             писать что-либо ДО тегов <tool_call>. Если инструмент нужен — первое слово ответа: <tool_call>.
-            
+
             Когда придут данные инструмента — используй их для ответа на вопрос.
             """;
 
@@ -37,8 +39,7 @@ public class SystemPromptFactory {
                 .map(SystemPromptFactory::formatTool)
                 .collect(Collectors.joining("\n"));
 
-        return systemPromptTemplate
-                .replace("{{ Tools }}", toolsInfo);
+        return TOOLS_PROMPT_PREFIX + toolsInfo + TOOLS_PROMPT_SUFFIX;
     }
 
     private static String formatTool(McpSchema.Tool tool) {

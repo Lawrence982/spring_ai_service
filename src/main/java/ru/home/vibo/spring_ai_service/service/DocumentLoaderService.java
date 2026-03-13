@@ -25,6 +25,10 @@ public class DocumentLoaderService implements CommandLineRunner {
 
     private static final String DOCUMENT_TYPE_TXT = "txt";
 
+    private static final TokenTextSplitter TEXT_SPLITTER = TokenTextSplitter.builder()
+            .withChunkSize(200)
+            .build();
+
     @Value("${app.knowledgebase.path}")
     private String knowledgeBasePath;
 
@@ -66,10 +70,7 @@ public class DocumentLoaderService implements CommandLineRunner {
                     }
 
                     List<Document> documents = new TextReader(resource).get();
-                    TokenTextSplitter textSplitter = TokenTextSplitter.builder()
-                            .withChunkSize(200)
-                            .build();
-                    List<Document> chunks = textSplitter.apply(documents);
+                    List<Document> chunks = TEXT_SPLITTER.apply(documents);
 
                     vectorStore.accept(chunks);
 
