@@ -43,7 +43,7 @@ public class SpringAiServiceApplication {
                 RagAdvisor.builder(vectorStore).order(3).build(),
                 SimpleLoggerAdvisor.builder().order(4).build())
                 .defaultOptions(OllamaChatOptions.builder().temperature(0.3).topP(0.7).topK(20).repeatPenalty(1.1).build())
-                // defaultSystem не указывается здесь — будет установлен в ChatService.@PostConstruct после MCP-инициализации
+                // defaultSystem не указывается здесь — будет установлен в McpClientManager.@PostConstruct после MCP-инициализации
                 .build();
     }
 

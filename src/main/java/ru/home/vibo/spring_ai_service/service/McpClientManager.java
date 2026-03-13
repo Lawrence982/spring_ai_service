@@ -40,7 +40,12 @@ public class McpClientManager {
                     .endpoint("/mcpserver")
 //                    .customizeRequest(r -> r.timeout(Duration.ofSeconds(30)))
                     .build();
-            client = McpClient.sync(transport).build();
+            client = McpClient
+                    .sync(transport)
+                    .loggingConsumer(loggingMessageNotification ->
+                            log.info("Клиент говорит: я получил послание от сервера - {}", loggingMessageNotification.data()))
+
+                    .build();
             client.initialize();
             McpSchema.ListToolsResult toolsResult = client.listTools();
             allowedTools = toolsResult.tools().stream()
