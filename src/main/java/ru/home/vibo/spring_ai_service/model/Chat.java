@@ -29,6 +29,7 @@ public class Chat {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
+    @Builder.Default
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
     @OrderBy("createdAt ASC")

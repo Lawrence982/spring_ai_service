@@ -25,19 +25,20 @@ public class PostgresChatMemory implements ChatMemory {
 
     private ChatRepository chatMemoryRepository;
 
+    private ChatEntryPersistence entryPersistence;
+
     private int maxMessages;
 
     @Override
     public void add(String conversationId, List<Message> messages) {
-        Chat chat = chatMemoryRepository.findByIdWithHistory(Long.valueOf(conversationId))
-                .orElseThrow(() -> new EntityNotFoundException("Chat not found with id: " + conversationId));
+        Long chatId = Long.valueOf(conversationId);
         for (Message message : messages) {
             if (message instanceof AssistantMessage && CallToolUtil.isToolRequired(message.getText())) {
                 continue;
             }
-            chat.addChatEntry(ChatEntry.toChatEntry(message));
+            ChatEntry entry = ChatEntry.toChatEntry(message);
+            entryPersistence.addEntry(chatId, entry.getContent(), entry.getRole());
         }
-        chatMemoryRepository.save(chat);
     }
 
     @Override

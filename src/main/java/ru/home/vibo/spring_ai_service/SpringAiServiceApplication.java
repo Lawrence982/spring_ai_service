@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import ru.home.vibo.spring_ai_service.advisors.expansion.ExpansionQueryAdvisor;
 import ru.home.vibo.spring_ai_service.advisors.rag.RagAdvisor;
 import ru.home.vibo.spring_ai_service.repository.ChatRepository;
+import ru.home.vibo.spring_ai_service.service.ChatEntryPersistence;
 import ru.home.vibo.spring_ai_service.service.PostgresChatMemory;
 
 @SpringBootApplication
@@ -27,6 +28,9 @@ public class SpringAiServiceApplication {
 
     @Autowired
     private ChatRepository chatRepository;
+
+    @Autowired
+    private ChatEntryPersistence entryPersistence;
 
     @Autowired
     private VectorStore vectorStore;
@@ -62,6 +66,7 @@ public class SpringAiServiceApplication {
         return PostgresChatMemory.builder()
                 .maxMessages(12)
                 .chatMemoryRepository(chatRepository)
+                .entryPersistence(entryPersistence)
                 .build();
     }
 
